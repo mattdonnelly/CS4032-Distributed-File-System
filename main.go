@@ -4,7 +4,7 @@ import (
     "log"
     "net"
     "os"
-    "requesthandler"
+    "handlers"
     "tcpserver"
 )
 
@@ -21,7 +21,7 @@ func main() {
 
     addrs, err := net.LookupHost("127.0.0.1")
     if err == nil {
-        server.AddHandler(requesthandler.NewHelo(addrs[0], port))
+        server.AddHandler(handlers.NewHelo(addrs[0], port))
     }
 
     server.Start()

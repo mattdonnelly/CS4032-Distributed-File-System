@@ -5,13 +5,13 @@ import (
     "fmt"
     "log"
     "net"
-    "requesthandler"
+    "handlers"
     "strings"
 )
 
 type TCPServer struct {
     addr *net.TCPAddr
-    requestHandlers map[string]requesthandler.RequestHandler
+    requestHandlers map[string]handlers.RequestHandler
     threadCount int
     clientChan chan *net.TCPConn
     killChan chan bool
@@ -21,7 +21,7 @@ func New(host string, port string, threadCount int) *TCPServer {
     addr, _ := net.ResolveTCPAddr("tcp", host + ":" + port)
     return &TCPServer{
         addr: addr,
-        requestHandlers: make(map[string]requesthandler.RequestHandler),
+        requestHandlers: make(map[string]handlers.RequestHandler),
         threadCount: threadCount,
         clientChan: make(chan *net.TCPConn, threadCount),
         killChan: make(chan bool),
@@ -39,7 +39,7 @@ func (server *TCPServer) Start() {
     server.acceptConnections(listener)
 }
 
-func (server *TCPServer) AddHandler(handler requesthandler.RequestHandler) {
+func (server *TCPServer) AddHandler(handler handlers.RequestHandler) {
     if _, full := server.requestHandlers[handler.RequestToken()]; full {
         fmt.Println("Protocol already exists: " + handler.RequestToken())
     }
@@ -52,7 +52,7 @@ func (server *TCPServer) AddHandler(handler requesthandler.RequestHandler) {
     }
 }
 
-func (server *TCPServer) RouteRequest(request string, client *net.TCPConn) <-chan requesthandler.StatusCode {
+func (server *TCPServer) RouteRequest(request string, client *net.TCPConn) <-chan handlers.StatusCode {
     words := strings.Fields(request)
 
     handler, success := server.requestHandlers[words[0]]
@@ -60,8 +60,8 @@ func (server *TCPServer) RouteRequest(request string, client *net.TCPConn) <-cha
         return handler.Handle(request, words, client)
     } else {
         fmt.Println("UKNOWN_REQUEST: " + request)
-        statusChan := make(chan requesthandler.StatusCode, 1)
-        statusChan <- requesthandler.STATUS_ERROR
+        statusChan := make(chan handlers.StatusCode, 1)
+        statusChan <- handlers.STATUS_ERROR
         return statusChan
     }
 }
@@ -103,9 +103,9 @@ func (server *TCPServer) acceptConnections(listener *net.TCPListener) {
 }
 
 func (server *TCPServer) handleConnection() {
-    status := requesthandler.STATUS_UNDEFINED
+    status := handlers.STATUS_UNDEFINED
 
-    for status != requesthandler.STATUS_FINISHED || status != requesthandler.STATUS_ERROR {
+    for status != handlers.STATUS_FINISHED || status != handlers.STATUS_ERROR {
         client := <- server.clientChan
 
         reader := bufio.NewReader(client)
@@ -127,7 +127,7 @@ func (server *TCPServer) handleConnection() {
         }
 
         if !readErr {
-            status = <- server.RouteRequest(string(buf), client)
+            status = <- server.RouteRequest(strings.TrimSpace(string(buf)), client)
         } else {
             break
         }
