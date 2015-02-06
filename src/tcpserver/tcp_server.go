@@ -127,6 +127,7 @@ func (server* TCPServer) RouteRequest(request string, client *net.TCPConn) <-cha
     if success {
         return handler.Handle(words, client)
     } else {
+        fmt.Println("UKNOWN_REQUEST: " + request)
         statusChan := make(chan requesthandler.StatusCode, 1)
         statusChan <- requesthandler.STATUS_ERROR
         return statusChan
