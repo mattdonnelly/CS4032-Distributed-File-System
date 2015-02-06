@@ -28,7 +28,7 @@ func New(host string, port string, threadCount int) *TCPServer {
     }
 }
 
-func (server* TCPServer) Start() {
+func (server *TCPServer) Start() {
     listener, err := net.ListenTCP("tcp", server.addr)
     if err != nil {
         log.Fatal("Couldn't start server: " + err.Error())
@@ -39,7 +39,34 @@ func (server* TCPServer) Start() {
     server.acceptConnections(listener)
 }
 
-func (server* TCPServer) acceptConnections(listener *net.TCPListener) {
+func (server *TCPServer) AddHandler(handler requesthandler.RequestHandler) {
+    if _, full := server.requestHandlers[handler.RequestToken()]; full {
+        fmt.Println("Protocol already exists: " + handler.RequestToken())
+    }
+
+    server.requestHandlers[handler.RequestToken()] = handler
+
+    _ , success := server.requestHandlers[handler.RequestToken()]
+    if !success {
+        log.Fatal("Failed to add request handler: " + handler.RequestToken())
+    }
+}
+
+func (server *TCPServer) RouteRequest(request string, client *net.TCPConn) <-chan requesthandler.StatusCode {
+    words := strings.Fields(request)
+
+    handler, success := server.requestHandlers[words[0]]
+    if success {
+        return handler.Handle(request, words, client)
+    } else {
+        fmt.Println("UKNOWN_REQUEST: " + request)
+        statusChan := make(chan requesthandler.StatusCode, 1)
+        statusChan <- requesthandler.STATUS_ERROR
+        return statusChan
+    }
+}
+
+func (server *TCPServer) acceptConnections(listener *net.TCPListener) {
     acceptChan := make(chan *net.TCPConn)
 
     go func() {
@@ -75,7 +102,7 @@ func (server* TCPServer) acceptConnections(listener *net.TCPListener) {
     }
 }
 
-func (server* TCPServer) handleConnection() {
+func (server *TCPServer) handleConnection() {
     status := requesthandler.STATUS_UNDEFINED
 
     for status != requesthandler.STATUS_FINISHED || status != requesthandler.STATUS_ERROR {
@@ -104,32 +131,5 @@ func (server* TCPServer) handleConnection() {
         } else {
             break
         }
-    }
-}
-
-func (server* TCPServer) AddHandler(handler requesthandler.RequestHandler) {
-    if _, full := server.requestHandlers[handler.RequestToken()]; full {
-        fmt.Println("Protocol already exists: " + handler.RequestToken())
-    }
-
-    server.requestHandlers[handler.RequestToken()] = handler
-
-    _ , success := server.requestHandlers[handler.RequestToken()]
-    if !success {
-        log.Fatal("Failed to add request handler: " + handler.RequestToken())
-    }
-}
-
-func (server* TCPServer) RouteRequest(request string, client *net.TCPConn) <-chan requesthandler.StatusCode {
-    words := strings.Fields(request)
-
-    handler, success := server.requestHandlers[words[0]]
-    if success {
-        return handler.Handle(words, client)
-    } else {
-        fmt.Println("UKNOWN_REQUEST: " + request)
-        statusChan := make(chan requesthandler.StatusCode, 1)
-        statusChan <- requesthandler.STATUS_ERROR
-        return statusChan
     }
 }
