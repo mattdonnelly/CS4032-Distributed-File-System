@@ -5,12 +5,13 @@ import (
     "fmt"
     "log"
     "net"
-    "os"
+    "requesthandler"
+    "strings"
 )
 
 type TCPServer struct {
     addr *net.TCPAddr
-    requestHandlers map[string]RequestHandler
+    requestHandlers map[string]requesthandler.RequestHandler
     threadCount int
     clientChan chan *net.TCPConn
     killChan chan bool
@@ -20,7 +21,7 @@ func New(host string, port string, threadCount int) *TCPServer {
     addr, _ := net.ResolveTCPAddr("tcp", host + ":" + port)
     return &TCPServer{
         addr: addr,
-        requestHandlers: make(map[string]Protocol),
+        requestHandlers: make(map[string]requesthandler.RequestHandler),
         threadCount: threadCount,
         clientChan: make(chan *net.TCPConn, threadCount),
         killChan: make(chan bool),
@@ -75,59 +76,59 @@ func (server* TCPServer) acceptConnections(listener *net.TCPListener) {
 }
 
 func (server* TCPServer) handleConnection() {
-    for {
+    status := requesthandler.STATUS_UNDEFINED
+
+    for status != requesthandler.STATUS_FINISHED || status != requesthandler.STATUS_ERROR {
         client := <- server.clientChan
 
         reader := bufio.NewReader(client)
-        responseChan := make(chan byte)
-        requestChan := make(chan byte)
 
-        go func(){
-            for responseByte := range responseChan {
-                client.Write([]byte{ responseByte })
-            }
-        }()
-
-        go func(){
-            for {
-                b, err := reader.ReadByte()
-                if err != nil {
-                    break
-                }
-
-                requestChan <- b
-            }
-        }()
-
-        status := 0
-
-        for status != 1 {
-            buffer := make([]byte,0)
-
-            for {
-                b := <- requestChan
-
-                if b != '\n' && b != ' ' && b != ':' && b != '\r' {
-                    buffer = append(buffer, b)
-                }
-                else {
-                    break
-                }
+        buf := []byte{}
+        readErr := false
+        for {
+            line, err := reader.ReadBytes('\n')
+            if err != nil {
+                readErr = true
+                break
             }
 
-            token := string(buffer)
+            buf = append(buf, line...)
 
-            if token != "" {
-                if token == "KILL_SERVICE" {
-                    server.killChan <- true
-                    log.Println("Killing service")
-                }
-                else {
-                    status = 1
-                }
-            } else {
-                log.Println("Encountered empty token")
+            if peek, err := reader.Peek(1); err == nil && string(peek) == "\n" {
+                break
             }
         }
+
+        if !readErr {
+            status = <- server.RouteRequest(string(buf), client)
+        } else {
+            break
+        }
+    }
+}
+
+func (server* TCPServer) AddHandler(handler requesthandler.RequestHandler) {
+    if _, full := server.requestHandlers[handler.RequestToken()]; full {
+        fmt.Println("Protocol already exists: " + handler.RequestToken())
+    }
+
+    server.requestHandlers[handler.RequestToken()] = handler
+
+    _ , success := server.requestHandlers[handler.RequestToken()]
+    if !success {
+        log.Fatal("Failed to add request handler: " + handler.RequestToken())
+    }
+}
+
+func (server* TCPServer) RouteRequest(request string, client *net.TCPConn) <-chan requesthandler.StatusCode {
+    words := strings.Fields(request)
+
+    handler, success := server.requestHandlers[words[0]]
+    if success {
+        return handler.Handle(words, client)
+    } else {
+        statusChan := make(chan requesthandler.StatusCode, 1)
+        statusChan <- requesthandler.STATUS_ERROR
+        return statusChan
     }
 }
