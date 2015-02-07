@@ -7,7 +7,8 @@ type StatusCode int
 const (
     STATUS_ERROR StatusCode = iota
     STATUS_UNDEFINED
-    STATUS_FINISHED
+    STATUS_OK
+    STATUS_DISCONNECT
 )
 
 type RequestHandler interface {

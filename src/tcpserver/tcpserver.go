@@ -3,9 +3,9 @@ package tcpserver
 import (
     "bufio"
     "fmt"
+    "handlers"
     "log"
     "net"
-    "handlers"
     "strings"
 )
 
@@ -41,7 +41,7 @@ func (server *TCPServer) Start() {
 
 func (server *TCPServer) AddHandler(handler handlers.RequestHandler) {
     if _, full := server.requestHandlers[handler.RequestToken()]; full {
-        fmt.Println("Protocol already exists: " + handler.RequestToken())
+        log.Println("Protocol already exists: " + handler.RequestToken())
     }
 
     server.requestHandlers[handler.RequestToken()] = handler
@@ -59,7 +59,7 @@ func (server *TCPServer) RouteRequest(request string, client *net.TCPConn) <-cha
     if success {
         return handler.Handle(request, words, client)
     } else {
-        fmt.Println("UKNOWN_REQUEST: " + request)
+        log.Println("UKNOWN_REQUEST: " + request)
         statusChan := make(chan handlers.StatusCode, 1)
         statusChan <- handlers.STATUS_ERROR
         return statusChan
@@ -74,11 +74,11 @@ func (server *TCPServer) acceptConnections(listener *net.TCPListener) {
             client, err := listener.AcceptTCP()
 
             if err != nil {
-                fmt.Printf("Couldn't accept client: " + err.Error())
+                log.Printf("Couldn't accept client: " + err.Error())
                 continue
             }
 
-            fmt.Printf("Accepted Connection: %v <-> %v\n", client.LocalAddr(), client.RemoteAddr())
+            log.Printf("Accepted Connection: %v <-> %v\n", client.LocalAddr(), client.RemoteAddr())
             acceptChan <- client
         }
     }()
@@ -93,10 +93,10 @@ func (server *TCPServer) acceptConnections(listener *net.TCPListener) {
                 select {
                     case server.clientChan <- client:
                     default:
-                        fmt.Println("Could not accept connection")
+                        log.Println("Could not accept connection")
                 }
             case <- server.killChan:
-                fmt.Println("Killing Service...")
+                log.Println("Killing Service...")
                 return
         }
     }
@@ -105,7 +105,7 @@ func (server *TCPServer) acceptConnections(listener *net.TCPListener) {
 func (server *TCPServer) handleConnection() {
     status := handlers.STATUS_UNDEFINED
 
-    for status != handlers.STATUS_FINISHED || status != handlers.STATUS_ERROR {
+    for status != handlers.STATUS_DISCONNECT {
         client := <- server.clientChan
 
         reader := bufio.NewReader(client)
@@ -127,7 +127,9 @@ func (server *TCPServer) handleConnection() {
         }
 
         if !readErr {
-            status = <- server.RouteRequest(strings.TrimSpace(string(buf)), client)
+            request :=  strings.TrimSpace(string(buf))
+            log.Println(request)
+            status = <- server.RouteRequest(request, client)
         } else {
             break
         }

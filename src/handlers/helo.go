@@ -28,7 +28,7 @@ func (h *Helo) Handle(request string, words []string, client *net.TCPConn) <-cha
 
     client.Write([]byte(response))
 
-    ch <- STATUS_FINISHED
+    ch <- STATUS_OK
 
     return ch
 }
