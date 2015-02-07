@@ -3,10 +3,10 @@ package tcpserver
 import (
     "bufio"
     "fmt"
-    "handlers"
     "log"
     "net"
     "strings"
+    "github.com/mattdonnelly/CS4032-Distributed-File-System/handlers"
 )
 
 type TCPServer struct {

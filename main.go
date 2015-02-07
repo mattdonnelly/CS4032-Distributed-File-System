@@ -4,8 +4,8 @@ import (
     "flag"
     "log"
     "net"
-    "handlers"
-    "tcpserver"
+    "github.com/mattdonnelly/CS4032-Distributed-File-System/handlers"
+    "github.com/mattdonnelly/CS4032-Distributed-File-System/tcpserver"
 )
 
 func main() {
