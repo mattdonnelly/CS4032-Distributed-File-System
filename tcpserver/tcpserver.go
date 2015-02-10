@@ -52,7 +52,7 @@ func (server *TCPServer) AddHandler(handler handlers.RequestHandler) {
     }
 }
 
-func (server *TCPServer) RouteRequest(request string, client *net.TCPConn) <-chan handlers.StatusCode {
+func (server *TCPServer) RouteRequest(request string, client *net.TCPConn) handlers.StatusCode {
     words := strings.Fields(request)
 
     handler, success := server.requestHandlers[words[0]]
@@ -60,9 +60,7 @@ func (server *TCPServer) RouteRequest(request string, client *net.TCPConn) <-cha
         return handler.Handle(request, words, client)
     } else {
         log.Println("UKNOWN_REQUEST: " + request)
-        statusChan := make(chan handlers.StatusCode, 1)
-        statusChan <- handlers.STATUS_ERROR
-        return statusChan
+        return handlers.STATUS_ERROR
     }
 }
 
@@ -129,7 +127,7 @@ func (server *TCPServer) handleConnection() {
         if !readErr {
             request :=  strings.TrimSpace(string(buf))
             log.Println(request)
-            status = <- server.RouteRequest(request, client)
+            status = server.RouteRequest(request, client)
         } else {
             break
         }

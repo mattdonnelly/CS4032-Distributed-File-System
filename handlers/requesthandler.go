@@ -13,5 +13,5 @@ const (
 
 type RequestHandler interface {
     RequestToken() string
-    Handle(request string, words []string, client *net.TCPConn) <-chan StatusCode
+    Handle(request string, words []string, client *net.TCPConn) StatusCode
 }

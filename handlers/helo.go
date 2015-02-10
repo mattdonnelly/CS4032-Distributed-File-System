@@ -18,9 +18,7 @@ func (h *Helo) RequestToken() string {
     return "HELO"
 }
 
-func (h *Helo) Handle(request string, words []string, client *net.TCPConn) <-chan StatusCode {
-    ch := make(chan StatusCode, 1)
-
+func (h *Helo) Handle(request string, words []string, client *net.TCPConn) StatusCode {
     response := request + "\n" +
                 "IP:" + h.ip + "\n" +
                 "Port:" + h.port + "\n" +
@@ -28,7 +26,5 @@ func (h *Helo) Handle(request string, words []string, client *net.TCPConn) <-cha
 
     client.Write([]byte(response))
 
-    ch <- STATUS_OK
-
-    return ch
+    return STATUS_OK
 }
